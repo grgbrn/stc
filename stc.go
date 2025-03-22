@@ -360,6 +360,42 @@ func events(event_types string, limit int, since int) error {
 	return nil
 }
 
+type event struct {
+	ID       int       `json:"id"`
+	GlobalID int       `json:"globalID"`
+	Time     time.Time `json:"time"`
+	Type     string    `json:"type"`
+	Data     struct {
+		Action     string `json:"action"`
+		Folder     string `json:"folder"`
+		FolderID   string `json:"folderID"`
+		Label      string `json:"label"`
+		ModifiedBy string `json:"modifiedBy"`
+		Path       string `json:"path"`
+		Type       string `json:"type"`
+	} `json:"data"`
+}
+
+func recent(limit int, since int) error {
+	jsonData, err := api.Events("LocalChangeDetected,RemoteChangeDetected", limit, since)
+	if err != nil {
+		return err
+	}
+
+	var events []event
+
+	err = json.Unmarshal([]byte(jsonData), &events)
+	if err != nil {
+		return fmt.Errorf("error unmarshaling JSON: %v", err)
+	}
+
+	for _, event := range events {
+		fmt.Printf("Device=%s, Action=%s, Type=%s, Folder=%s, Path=%s, Time=%s\n",
+			event.Data.ModifiedBy, event.Data.Action, event.Data.Type, event.Data.Folder, event.Data.Path, event.Time.Format("2006-01-02 15:04:05"))
+	}
+	return nil
+}
+
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	flag.Usage = usage
@@ -416,6 +452,8 @@ func main() {
 		err = events(flag.Arg(1), *limit, *since)
 	case "json_dump":
 		err = dumpDashAsJson()
+	case "recent":
+		err = recent(*limit, *since)
 	default:
 		err = dash()
 	}
