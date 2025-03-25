@@ -377,6 +377,11 @@ type event struct {
 }
 
 func recent(limit int, since int) error {
+
+	if limit == -1 {
+		limit = 25
+	}
+
 	jsonData, err := api.Events("LocalChangeDetected,RemoteChangeDetected", limit, since)
 	if err != nil {
 		return err
@@ -389,10 +394,17 @@ func recent(limit int, since int) error {
 		return fmt.Errorf("error unmarshaling JSON: %v", err)
 	}
 
-	for _, event := range events {
-		fmt.Printf("Device=%s, Action=%s, Type=%s, Folder=%s, Path=%s, Time=%s\n",
-			event.Data.ModifiedBy, event.Data.Action, event.Data.Type, event.Data.Folder, event.Data.Path, event.Time.Format("2006-01-02 15:04:05"))
+	t := tabwriter.NewWriter(os.Stdout, 9, 0, 2, ' ', tabwriter.TabIndent)
+
+	fmt.Fprintln(t, "Device\tAction\tType\tFolder\tPath\tTime")
+
+	for _, e := range events {
+
+		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			e.Data.ModifiedBy, e.Data.Action, e.Data.Type, e.Data.Folder, e.Data.Path, humanize.Time(e.Time))
 	}
+
+	t.Flush()
 	return nil
 }
 
