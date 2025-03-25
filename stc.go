@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"text/tabwriter"
@@ -366,6 +367,21 @@ func events(event_types string, limit int, since int) error {
 
 func recent(limit int, since int) error {
 
+	// map device id to device name
+	cfg, err := api.GetConfig()
+	if err != nil {
+		return err
+	}
+
+	deviceNames := make(map[string]string)
+	for _, d := range cfg.Devices {
+		// device id is of the form SP7C5JX-S5SUCIA-TQPS2RS-7RRNNKF-ZFH7ZO3-6HNQHFG-PLGW6TL-A2DBMA7
+		// but only the first segment is reported in the events api
+		ix := strings.Index(d.DeviceID, "-")
+		tmp := d.DeviceID[:ix]
+		deviceNames[tmp] = d.Name
+	}
+
 	if limit == -1 {
 		limit = 25
 	}
@@ -380,9 +396,14 @@ func recent(limit int, since int) error {
 	fmt.Fprintln(t, "Device\tAction\tType\tFolder\tPath\tTime")
 
 	for _, e := range events {
+		who := e.Data.ModifiedBy
+		friendlyName, ok := deviceNames[who]
+		if ok {
+			who = friendlyName
+		}
 
 		fmt.Fprintf(t, "%s\t%s\t%s\t%s\t%s\t%s\n",
-			e.Data.ModifiedBy, e.Data.Action, e.Data.Type, e.Data.Folder, e.Data.Path, humanize.Time(e.Time))
+			who, e.Data.Action, e.Data.Type, e.Data.Folder, e.Data.Path, humanize.Time(e.Time))
 	}
 
 	t.Flush()
