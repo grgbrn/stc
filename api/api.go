@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/go-resty/resty/v2"
 )
@@ -80,6 +81,22 @@ type FolderErrors struct {
 		Path  string `json:"path"`
 		Error string `json:"error"`
 	} `json:"errors"`
+}
+
+type StEvent struct {
+	ID       int       `json:"id"`
+	GlobalID int       `json:"globalID"`
+	Time     time.Time `json:"time"`
+	Type     string    `json:"type"`
+	Data     struct {
+		Action     string `json:"action"`
+		Folder     string `json:"folder"`
+		FolderID   string `json:"folderID"`
+		Label      string `json:"label"`
+		ModifiedBy string `json:"modifiedBy"`
+		Path       string `json:"path"`
+		Type       string `json:"type"`
+	} `json:"data"`
 }
 
 func apiError(e interface{}) error {
@@ -355,18 +372,24 @@ func Revert(folderID string) error {
 	return nil
 }
 
-func Events(event_types string, limit int, since int) (string, error) {
+func Events(event_types string, limit int, since int) ([]StEvent, error) {
 	r, err := c.R().
 		SetQueryString("events=" + event_types).
 		SetQueryString(fmt.Sprintf("since=%d", since)).
 		SetQueryString(fmt.Sprintf("limit=%d", limit)).
 		Get("events")
 	if err != nil {
-		return "", apiError(err)
+		return []StEvent{}, apiError(err)
 	}
 	if r.IsError() {
-		return "", apiError(r.Status())
+		return []StEvent{}, apiError(r.Status())
 	}
 
-	return r.String(), nil
+	events := []StEvent{}
+	err = json.Unmarshal(r.Body(), &events)
+	if err != nil {
+		return []StEvent{}, apiError(err)
+	}
+
+	return events, nil
 }
